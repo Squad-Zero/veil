@@ -51,8 +51,14 @@ export function createEnvEngine(rules: EnvRule[], injectors?: VeilInjectors): En
 		const realValue = process.env[key];
 
 		switch (action) {
-			case "allow":
-				return { ok: true, value: realValue };
+			case "allow": {
+				const allowResult: EnvResult = { ok: true, value: realValue };
+				// Surface context from passive mode rules
+				if (rule.reason) {
+					(allowResult).context = rule.reason;
+				}
+				return allowResult;
+			}
 
 			case "deny":
 				return createEnvBlockedResult(key, "env_denied_by_policy", policyRef, action);
