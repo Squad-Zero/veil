@@ -4,7 +4,7 @@
 
 Veil acts as a *visibility firewall* between an LLM and your project's filesystem, environment variables, and command interfaces.
 
-[![npm version](https://badge.fury.io/js/veil.svg)](https://badge.fury.io/js/veil)
+[![npm version](https://img.shields.io/npm/v/@squadzero/veil.svg)](https://www.npmjs.com/package/@squadzero/veil)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6+-blue.svg)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -54,11 +54,11 @@ When you give an LLM access to your codebase (via tools like file reading, comma
 ## Installation
 
 ```bash
-npm install veil
+npm install @squadzero/veil
 # or
-pnpm add veil
+pnpm add @squadzero/veil
 # or
-yarn add veil
+yarn add @squadzero/veil
 ```
 
 ## Quick Start
@@ -66,7 +66,7 @@ yarn add veil
 ### Step 1: Create a Veil Instance
 
 ```typescript
-import { createVeil, PRESET_RECOMMENDED } from 'veil';
+import { createVeil, PRESET_RECOMMENDED } from '@squadzero/veil';
 
 // Start with the recommended preset (covers common security cases)
 const veil = createVeil(PRESET_RECOMMENDED);
@@ -125,7 +125,7 @@ Here's how Veil integrates with popular LLM frameworks:
 
 ```typescript
 import OpenAI from 'openai';
-import { createVeil, PRESET_RECOMMENDED } from 'veil';
+import { createVeil, PRESET_RECOMMENDED } from '@squadzero/veil';
 
 const veil = createVeil(PRESET_RECOMMENDED);
 const openai = new OpenAI();
@@ -157,7 +157,7 @@ async function handleToolCall(name: string, args: any) {
 
 ```typescript
 import Anthropic from '@anthropic-ai/sdk';
-import { createVeil, PRESET_RECOMMENDED } from 'veil';
+import { createVeil, PRESET_RECOMMENDED } from '@squadzero/veil';
 
 const veil = createVeil(PRESET_RECOMMENDED);
 const anthropic = new Anthropic();
@@ -188,7 +188,7 @@ function processToolUse(toolName: string, toolInput: any) {
 
 ```typescript
 import { DynamicTool } from 'langchain/tools';
-import { createVeil, PRESET_RECOMMENDED } from 'veil';
+import { createVeil, PRESET_RECOMMENDED } from '@squadzero/veil';
 
 const veil = createVeil(PRESET_RECOMMENDED);
 
@@ -226,7 +226,7 @@ const runCommandTool = new DynamicTool({
 ```typescript
 import { tool } from 'ai';
 import { z } from 'zod';
-import { createVeil, PRESET_RECOMMENDED } from 'veil';
+import { createVeil, PRESET_RECOMMENDED } from '@squadzero/veil';
 
 const veil = createVeil(PRESET_RECOMMENDED);
 
@@ -413,7 +413,7 @@ import {
   PRESET_MINIMAL,
   PRESET_CI,
   mergeConfigs 
-} from 'veil';
+} from '@squadzero/veil';
 
 // Use the recommended preset directly
 const veil = createVeil(PRESET_RECOMMENDED);
@@ -449,7 +449,7 @@ import {
   SENSITIVE_ENV_VARS,    // AWS_*, passwords, tokens, API keys
   DANGEROUS_COMMANDS,    // rm -rf, chmod 777, curl|bash, etc.
   CREDENTIAL_LEAK_COMMANDS  // curl -u, echo $PASSWORD
-} from 'veil';
+} from '@squadzero/veil';
 
 const customPreset = {
   fileRules: [...COMMON_HIDDEN_DIRS],
@@ -471,7 +471,7 @@ import {
   fromPacks, 
   buildConfigFromRules,
   recommended 
-} from 'veil';
+} from '@squadzero/veil';
 
 // Register all built-in rules (call once at startup)
 registerPlatformRules();
@@ -489,7 +489,7 @@ const veil2 = createVeil(buildConfigFromRules(rules));
 Configure rules individually like ESLint:
 
 ```typescript
-import { createVeil, registerPlatformRules, buildConfigFromRules } from 'veil';
+import { createVeil, registerPlatformRules, buildConfigFromRules } from '@squadzero/veil';
 
 registerPlatformRules();
 
@@ -512,7 +512,7 @@ const veil = createVeil(buildConfigFromRules({
 ### Extending Presets
 
 ```typescript
-import { recommended, extendRules, buildConfigFromRules } from 'veil';
+import { recommended, extendRules, buildConfigFromRules } from '@squadzero/veil';
 
 const customRules = extendRules(recommended(), {
   // Override specific rules
@@ -558,7 +558,7 @@ import {
   wranglerRule, 
   dockerRule, 
   terraformRule 
-} from 'veil';
+} from '@squadzero/veil';
 
 registerPlatformRules();
 registerModalRules();
@@ -697,7 +697,7 @@ cli/no-credential-echo     # Block echo $PASSWORD
 For a more ergonomic configuration experience, use the `VeilBuilder`:
 
 ```typescript
-import { veilBuilder } from 'veil';
+import { veilBuilder } from '@squadzero/veil';
 
 // Build a Veil instance with fluent API
 const veil = veilBuilder()
@@ -741,7 +741,7 @@ import {
   PluginManager, 
   createLoggingPlugin, 
   createMetricsPlugin 
-} from 'veil';
+} from '@squadzero/veil';
 
 // Create plugin manager
 const plugins = new PluginManager();
@@ -775,7 +775,7 @@ console.log(metricsPlugin.getMetrics());
 ### Custom Plugins
 
 ```typescript
-import type { VeilPlugin } from 'veil';
+import type { VeilPlugin } from '@squadzero/veil';
 
 const myPlugin: VeilPlugin = {
   name: 'my-custom-plugin',
@@ -823,7 +823,7 @@ const myPlugin: VeilPlugin = {
 The `AuditManager` provides comprehensive audit trails with event emitters and storage adapters:
 
 ```typescript
-import { AuditManager, MemoryStorageAdapter } from 'veil';
+import { AuditManager, MemoryStorageAdapter } from '@squadzero/veil';
 
 // Create audit manager with storage
 const storage = new MemoryStorageAdapter({ maxRecords: 10000 });
@@ -861,7 +861,7 @@ await audit.clear();
 ### Custom Storage Adapters
 
 ```typescript
-import type { AuditStorageAdapter, InterceptRecord } from 'veil';
+import type { AuditStorageAdapter, InterceptRecord } from '@squadzero/veil';
 import * as fs from 'fs/promises';
 
 // Example: File-based storage
