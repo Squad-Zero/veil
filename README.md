@@ -580,15 +580,15 @@ const strictVeil = createVeil(buildConfigFromRules({
 
 ### Available Modal Rules
 
-| Rule ID            | Default Mode | Description                 |
-| ------------------ | ------------ | --------------------------- |
-| `cli/wrangler`     | passive      | Cloudflare Workers CLI      |
-| `cli/docker`       | passive      | Docker container management |
-| `cli/terraform`    | passive      | Infrastructure as Code      |
-| `cli/kubectl`      | passive      | Kubernetes CLI              |
-| `cli/aws`          | passive      | AWS Command Line Interface  |
-| `cli/npm`          | passive      | Node.js package manager     |
-| `cli/git`          | passive      | Version control operations  |
+| Rule ID         | Default Mode | Description                 |
+| --------------- | ------------ | --------------------------- |
+| `cli/wrangler`  | passive      | Cloudflare Workers CLI      |
+| `cli/docker`    | passive      | Docker container management |
+| `cli/terraform` | passive      | Infrastructure as Code      |
+| `cli/kubectl`   | passive      | Kubernetes CLI              |
+| `cli/aws`       | passive      | AWS Command Line Interface  |
+| `cli/npm`       | passive      | Node.js package manager     |
+| `cli/git`       | passive      | Version control operations  |
 
 ### Strict vs Passive Examples
 
@@ -717,19 +717,19 @@ const result = veil.checkFile('/path/to/secrets/api.json');
 
 ### Builder Methods
 
-| Method                        | Description                         |
-| ----------------------------- | ----------------------------------- |
-| `usePack(pack)`               | Add a rule pack                     |
-| `useModal(ruleId, options)`   | Configure a modal rule              |
-| `denyFile(pattern)`           | Add a deny rule for files           |
-| `denyEnv(pattern)`            | Add a deny rule for env vars        |
-| `denyCommand(pattern)`        | Add a deny rule for CLI commands    |
-| `maskEnv(pattern)`            | Add a mask rule for env vars        |
-| `allowFile(pattern)`          | Add an allow rule for files         |
-| `allowEnv(pattern)`           | Add an allow rule for env vars      |
-| `allowCommand(pattern)`       | Add an allow rule for CLI commands  |
-| `withInjectors(injectors)`    | Add custom content injectors        |
-| `build()`                     | Build the Veil instance             |
+| Method                      | Description                        |
+| --------------------------- | ---------------------------------- |
+| `usePack(pack)`             | Add a rule pack                    |
+| `useModal(ruleId, options)` | Configure a modal rule             |
+| `denyFile(pattern)`         | Add a deny rule for files          |
+| `denyEnv(pattern)`          | Add a deny rule for env vars       |
+| `denyCommand(pattern)`      | Add a deny rule for CLI commands   |
+| `maskEnv(pattern)`          | Add a mask rule for env vars       |
+| `allowFile(pattern)`        | Add an allow rule for files        |
+| `allowEnv(pattern)`         | Add an allow rule for env vars     |
+| `allowCommand(pattern)`     | Add an allow rule for CLI commands |
+| `withInjectors(injectors)`  | Add custom content injectors       |
+| `build()`                   | Build the Veil instance            |
 
 ## Plugin System
 
@@ -892,10 +892,10 @@ const audit = new AuditManager(fileStorage);
 
 ### Built-in Storage Adapters
 
-| Adapter                       | Description                               |
-| ----------------------------- | ----------------------------------------- |
-| `MemoryStorageAdapter`        | In-memory storage with max records limit  |
-| `createConsoleStorageAdapter` | Logs to console and stores in memory      |
+| Adapter                       | Description                              |
+| ----------------------------- | ---------------------------------------- |
+| `MemoryStorageAdapter`        | In-memory storage with max records limit |
+| `createConsoleStorageAdapter` | Logs to console and stores in memory     |
 
 ## Enhanced Guard Function
 
@@ -965,20 +965,20 @@ console.log(errorResult);
 
 ### Veil Instance Methods
 
-| Method                             | Description                                |
-| ---------------------------------- | ------------------------------------------ |
-| `checkFile(path)`                  | Check if a file is accessible              |
-| `checkDirectory(path)`             | Check if a directory is accessible         |
-| `filterPaths(paths)`               | Filter a list of paths by visibility       |
-| `getEnv(key)`                      | Get an env variable with rules applied     |
-| `getVisibleEnv()`                  | Get all visible env variables              |
-| `checkCommand(cmd)`                | Check/transform a CLI command              |
-| `guard(fn)`                        | Execute operation in guarded context       |
-| `guard(fn, { detailed: true })`    | Execute with detailed tracking (GuardResult) |
-| `scope(policy)`                    | Create scoped instance with extra rules    |
-| `getContext()`                     | Get current visibility context             |
-| `getInterceptedCalls()`            | Get audit log of blocked operations        |
-| `clearInterceptedCalls()`          | Clear the audit log                        |
+| Method                          | Description                                  |
+| ------------------------------- | -------------------------------------------- |
+| `checkFile(path)`               | Check if a file is accessible                |
+| `checkDirectory(path)`          | Check if a directory is accessible           |
+| `filterPaths(paths)`            | Filter a list of paths by visibility         |
+| `getEnv(key)`                   | Get an env variable with rules applied       |
+| `getVisibleEnv()`               | Get all visible env variables                |
+| `checkCommand(cmd)`             | Check/transform a CLI command                |
+| `guard(fn)`                     | Execute operation in guarded context         |
+| `guard(fn, { detailed: true })` | Execute with detailed tracking (GuardResult) |
+| `scope(policy)`                 | Create scoped instance with extra rules      |
+| `getContext()`                  | Get current visibility context               |
+| `getInterceptedCalls()`         | Get audit log of blocked operations          |
+| `clearInterceptedCalls()`       | Clear the audit log                          |
 
 ## Use Cases
 
