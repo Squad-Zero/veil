@@ -39,7 +39,7 @@ export function createCliEngine(rules: CliRule[]): CliEngine {
 					ok: false,
 					blocked: true,
 					type: "cli",
-					reason: "command_denied_by_policy",
+					reason: rule.reason ?? "command_denied_by_policy",
 					command,
 				};
 				if (rule.safeAlternatives) {
@@ -60,7 +60,7 @@ export function createCliEngine(rules: CliRule[]): CliEngine {
 					ok: false,
 					blocked: true,
 					type: "cli",
-					reason: "command_denied_by_policy",
+					reason: rule.reason ?? "command_denied_by_policy",
 					command,
 				};
 				if (rule.safeAlternatives) {

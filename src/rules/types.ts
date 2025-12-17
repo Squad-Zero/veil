@@ -78,9 +78,9 @@ export interface VeilRule {
 }
 
 /**
- * Rule configuration - severity, or tuple with options
+ * Rule configuration - severity, tuple with options, or modal config directly
  */
-export type RuleConfig = RuleSeverity | [RuleSeverity, ModalRuleConfig];
+export type RuleConfig = RuleSeverity | [RuleSeverity, ModalRuleConfig] | ModalRuleConfig;
 
 /**
  * Modal rule configuration options

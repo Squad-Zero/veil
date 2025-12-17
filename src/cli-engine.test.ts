@@ -39,7 +39,7 @@ describe("cli-engine", () => {
 			const result = engine.checkCommand("rm -rf /");
 			expect(result.ok).toBe(false);
 			expect(result.blocked).toBe(true);
-			expect(result.reason).toBe("command_denied_by_policy");
+			expect(result.reason).toBe("Dangerous command");
 			expect(result.safeAlternatives).toEqual(["rm -i", "trash"]);
 		});
 

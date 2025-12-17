@@ -113,11 +113,15 @@ export function detectPlatform(): Platform {
 /**
  * Convert severity to rule action
  */
-function severityToEnabled(severity: RuleConfig): boolean {
-	if (typeof severity === "string") {
-		return severity !== "off";
+function severityToEnabled(ruleConfig: RuleConfig): boolean {
+	// Direct ModalRuleConfig means enabled
+	if (typeof ruleConfig === "object" && !Array.isArray(ruleConfig)) {
+		return true;
 	}
-	return severity[0] !== "off";
+	if (typeof ruleConfig === "string") {
+		return ruleConfig !== "off";
+	}
+	return ruleConfig[0] !== "off";
 }
 
 /**
@@ -127,7 +131,11 @@ function extractModalConfig(ruleConfig: RuleConfig): ModalRuleConfig | undefined
 	if (typeof ruleConfig === "string") {
 		return undefined;
 	}
-	return ruleConfig[1];
+	if (Array.isArray(ruleConfig)) {
+		return ruleConfig[1];
+	}
+	// Direct ModalRuleConfig object
+	return ruleConfig;
 }
 
 /**

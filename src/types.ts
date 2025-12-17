@@ -110,6 +110,7 @@ export interface VeilBlocked extends VeilResult {
 
 /**
  * Reasons for blocking an operation
+ * Can be a standard reason or a custom message string
  */
 export type BlockReason =
 	| "directory_hidden_by_policy"
@@ -117,7 +118,8 @@ export type BlockReason =
 	| "env_denied_by_policy"
 	| "env_masked_by_policy"
 	| "command_denied_by_policy"
-	| "command_rewritten_by_policy";
+	| "command_rewritten_by_policy"
+	| (string & {});
 
 /**
  * Details about why an operation was blocked
