@@ -29,6 +29,113 @@ const cmdCheck = veil.checkCommand('rm -rf /');     // → blocked with alternat
 
 ---
 
+## CLI Examples
+
+The same use cases using only the CLI:
+
+### 1. Block a Command with Helpful Context
+
+```bash
+# Initialize config
+npx veil init --preset recommended
+
+# Add rule to block wrangler deploy
+npx veil add-rule -t cli \
+  -m "^wrangler (deploy|publish)" \
+  -a deny \
+  -r "Use npm run build:stage or npx appkit deploy:stage instead" \
+  --alternatives "npm run build:stage,npx appkit deploy:stage"
+
+# Test the rule
+npx veil check "wrangler deploy" -t cli
+# ✗ BLOCKED wrangler deploy
+#   Reason: Use npm run build:stage or npx appkit deploy:stage instead
+#   Safe alternatives:
+#     - npm run build:stage
+#     - npx appkit deploy:stage
+```
+
+### 2. Block Sensitive Env Var Access
+
+```bash
+# Add rule to block direct access to sensitive token
+npx veil add-rule -t env \
+  -m "CLOUDFLARE_API_TOKEN" \
+  -a deny \
+  -r "SENSITIVE: Use wrangler commands instead of direct API access"
+
+# Test the rule
+npx veil check "CLOUDFLARE_API_TOKEN" -t env
+# ✗ BLOCKED CLOUDFLARE_API_TOKEN
+#   Reason: SENSITIVE: Use wrangler commands instead of direct API access
+```
+
+### 3. Explain Why Something Is Blocked
+
+```bash
+# Get detailed explanation of why a command would be blocked
+npx veil explain "rm -rf /" -t cli
+# ─ Explanation for: rm -rf / ─
+# 
+# Status: BLOCKED
+# 
+# Reason: Recursive delete from root or home
+# 
+# ─ Matching Rules ─
+#   ✓ Match: rm -rf / → deny
+```
+
+### 4. Block Dangerous Git Commands
+
+```bash
+# Add rules for destructive git operations  
+npx veil add-rule -t cli \
+  -m "^git reset --hard" \
+  -a deny \
+  -r "BLOCKED: Discards uncommitted changes permanently" \
+  --alternatives "git stash,git reset --soft"
+
+npx veil add-rule -t cli \
+  -m "^git push --force$" \
+  -a deny \
+  -r "BLOCKED: Overwrites remote history" \
+  --alternatives "git push --force-with-lease"
+
+# Test the rules
+npx veil check "git reset --hard" -t cli
+# ✗ BLOCKED git reset --hard
+#   Reason: BLOCKED: Discards uncommitted changes permanently
+#   Safe alternatives:
+#     - git stash
+#     - git reset --soft
+
+npx veil check "git push --force" -t cli
+# ✗ BLOCKED git push --force
+#   Reason: BLOCKED: Overwrites remote history
+#   Safe alternatives:
+#     - git push --force-with-lease
+```
+
+### Scan Project for Sensitive Files
+
+```bash
+# Scan current directory for files that would be blocked
+npx veil scan -d . --depth 3
+# Scanning /path/to/project...
+# 
+# ─ Blocked Files ─
+#   ✗ .env
+#   ✗ .env.local
+#   ✗ secrets/api-keys.json
+# 
+# ─ Summary ─
+#   Total files scanned: 156
+#   Blocked: 3
+#   Allowed: 153
+```
+
+---
+
 ## Real-World Examples
 
 ### 1. Block a Command with Helpful Context
@@ -191,23 +298,33 @@ veil.checkCommand('DROP DATABASE prod'); // → blocked
 
 ---
 
-## CLI Tool
-
-Veil includes a CLI for project configuration:
+## CLI Reference
 
 ```bash
-# Initialize a .veilrc.json config file
-npx veil init --preset recommended
+npx veil <command> [options]
+```
 
-# Check if a file/command would be blocked
+| Command | Description |
+|---------|-------------|
+| `init` | Create `.veilrc.json` with a preset |
+| `check <target>` | Check if file/env/cli would be blocked |
+| `explain <target>` | Explain why something is blocked |
+| `scan` | Scan project for sensitive files |
+| `add-rule` | Add a rule to config |
+| `remove-rule` | Remove a rule from config |
+| `list-rules` | List all built-in rules |
+| `list-packs` | List available presets |
+| `show-config` | Print current config |
+| `apply-pack` | Merge a preset into config |
+
+```bash
+# Examples
+npx veil init --preset strict
 npx veil check ".env" -t file
+npx veil check "CLOUDFLARE_API_TOKEN" -t env  
 npx veil check "rm -rf /" -t cli
-
-# Scan project for sensitive files
-npx veil scan -d . --depth 3
-
-# List available rules
-npx veil list-rules
+npx veil add-rule -t cli -m "^sudo" -a deny -r "sudo not allowed"
+npx veil scan -d ./src --depth 5
 ```
 
 ---
