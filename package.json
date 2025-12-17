@@ -39,6 +39,9 @@
       "eslint --fix"
     ]
   },
+  "bin": {
+    "veil": "dist/cli/index.cjs"
+  },
   "keywords": [
     "llm",
     "ai",
