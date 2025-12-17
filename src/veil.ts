@@ -22,9 +22,17 @@ import type {
 } from "./types";
 
 /**
- * Create a new Veil instance
+ * Create a new Veil instance for controlling LLM visibility to files, environment variables, and CLI commands.
  *
- * @example
+ * The Veil instance provides a unified API for:
+ * - **File visibility**: Control which files and directories an LLM can see
+ * - **Environment variables**: Mask, deny, or rewrite sensitive env vars
+ * - **CLI commands**: Block dangerous commands and suggest safe alternatives
+ *
+ * @param config - Configuration object containing rules for file, env, and CLI access
+ * @returns A Veil instance with methods for checking access, filtering paths, and managing scope
+ *
+ * @example Basic usage
  * ```ts
  * const veil = createVeil({
  *   fileRules: [
@@ -37,6 +45,31 @@ import type {
  *   cliRules: [
  *     { match: /^rm -rf/, action: "deny" }
  *   ]
+ * });
+ * ```
+ *
+ * @example Using presets
+ * ```ts
+ * import { createVeil, PRESET_RECOMMENDED, mergeConfigs } from 'veil';
+ *
+ * const veil = createVeil(mergeConfigs(
+ *   PRESET_RECOMMENDED,
+ *   { fileRules: [{ match: 'custom-secret', action: 'deny' }] }
+ * ));
+ * ```
+ *
+ * @example Checking file access
+ * ```ts
+ * const result = veil.checkFile('/path/to/secrets/config.json');
+ * if (!result.ok) {
+ *   console.log('Blocked:', result.reason);
+ * }
+ * ```
+ *
+ * @example Using scope for temporary stricter rules
+ * ```ts
+ * const strictVeil = veil.scope({
+ *   fileRules: [{ match: /\.json$/, action: 'deny' }]
  * });
  * ```
  */

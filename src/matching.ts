@@ -1,13 +1,21 @@
 /**
  * Rule Matching Utilities
  *
- * Helper functions for matching rules against targets
+ * Helper functions for matching rules against targets.
+ * These utilities are exported for advanced users who want to build custom engines.
  */
 
 import type { BaseRule, RuleAction } from "./types";
 
 /**
- * Check if a target matches a rule pattern
+ * Check if a target string matches a rule pattern.
+ *
+ * For string patterns, this checks for exact match or substring inclusion.
+ * For RegExp patterns, this tests the target against the regex.
+ *
+ * @param target - The string to check (file path, env var name, command, etc.)
+ * @param pattern - String for exact/substring match, or RegExp for pattern matching
+ * @returns true if the target matches the pattern
  */
 export function matchesPattern(target: string, pattern: string | RegExp): boolean {
 	if (typeof pattern === "string") {
@@ -18,7 +26,14 @@ export function matchesPattern(target: string, pattern: string | RegExp): boolea
 }
 
 /**
- * Find the first matching rule for a target
+ * Find the first matching rule for a target from an array of rules.
+ *
+ * Rules are evaluated in order - the first match wins.
+ * This enables priority-based rule configurations.
+ *
+ * @param target - The string to match against rules
+ * @param rules - Array of rules to evaluate
+ * @returns The matching rule and its index, or null if no match
  */
 export function findMatchingRule<T extends BaseRule>(
 	target: string,
@@ -34,8 +49,14 @@ export function findMatchingRule<T extends BaseRule>(
 }
 
 /**
- * Evaluate rules in order and return the action to take
- * Returns null if no rules match (defaults to allow)
+ * Evaluate rules in order and return the action to take.
+ *
+ * Returns null if no rules match, which typically defaults to allow.
+ * Includes a policy reference for audit logging.
+ *
+ * @param target - The string to match against rules
+ * @param rules - Array of rules to evaluate
+ * @returns The action, matching rule, and policy reference, or null if no match
  */
 export function evaluateRules<T extends BaseRule>(
 	target: string,
@@ -67,7 +88,14 @@ function getRuleTypeName(rule: BaseRule): string {
 }
 
 /**
- * Apply a mask to a value
+ * Apply a mask to a sensitive value.
+ *
+ * If a replacement is provided, uses that directly.
+ * Otherwise, generates a mask showing first and last character with asterisks in between.
+ *
+ * @param value - The value to mask
+ * @param replacement - Optional custom replacement string
+ * @returns The masked value
  */
 export function applyMask(value: string, replacement?: string): string {
 	if (replacement !== undefined) {
@@ -81,7 +109,11 @@ export function applyMask(value: string, replacement?: string): string {
 }
 
 /**
- * Generate a policy reference string
+ * Generate a policy reference string for audit logging.
+ *
+ * @param ruleType - The type of rule (e.g., fileRules, envRules, cliRules)
+ * @param index - The index of the rule in its array
+ * @returns A formatted policy reference like fileRules[0]
  */
 export function generatePolicyRef(ruleType: string, index: number): string {
 	return `${ruleType}[${index}]`;

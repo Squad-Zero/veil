@@ -41,6 +41,11 @@
     "type": "git",
     "url": "https://github.com/am80l/veil.git"
   },
+  "homepage": "https://github.com/am80l/veil#readme",
+  "bugs": {
+    "url": "https://github.com/am80l/veil/issues"
+  },
+  "sideEffects": false,
   "devDependencies": {
     "@biomejs/biome": "^1.9.0",
     "@types/node": "^22.0.0",

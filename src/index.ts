@@ -76,3 +76,20 @@ export type {
 
 // Utilities (for advanced users)
 export { matchesPattern, findMatchingRule, evaluateRules, applyMask } from "./matching";
+
+// Presets and helpers
+export {
+	// Individual rule sets
+	COMMON_HIDDEN_DIRS,
+	SENSITIVE_FILES,
+	SENSITIVE_ENV_VARS,
+	DANGEROUS_COMMANDS,
+	CREDENTIAL_LEAK_COMMANDS,
+	// Complete presets
+	PRESET_RECOMMENDED,
+	PRESET_STRICT,
+	PRESET_MINIMAL,
+	PRESET_CI,
+	// Helpers
+	mergeConfigs,
+} from "./presets";

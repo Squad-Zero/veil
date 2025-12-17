@@ -211,6 +211,63 @@ Creates a new Veil instance.
 - `cliRules` - Rules for CLI command interception
 - `injectors` - Custom content injectors
 
+## Presets
+
+Veil includes pre-configured rule sets for common use cases:
+
+```typescript
+import { 
+  createVeil, 
+  PRESET_RECOMMENDED,
+  PRESET_STRICT,
+  PRESET_MINIMAL,
+  PRESET_CI,
+  mergeConfigs 
+} from 'veil';
+
+// Use the recommended preset directly
+const veil = createVeil(PRESET_RECOMMENDED);
+
+// Combine presets with your own rules
+const customVeil = createVeil(mergeConfigs(
+  PRESET_RECOMMENDED,
+  {
+    fileRules: [
+      { match: 'my-custom-secret', action: 'deny' }
+    ]
+  }
+));
+```
+
+### Available Presets
+
+| Preset | Description |
+| ------ | ----------- |
+| `PRESET_RECOMMENDED` | Balanced defaults: blocks node_modules, .git, .env, secrets, and dangerous commands |
+| `PRESET_STRICT` | Maximum security: masks all env vars by default, blocks sudo, docker run |
+| `PRESET_MINIMAL` | Essential protection only: just .env files, passwords, and rm -rf |
+| `PRESET_CI` | CI/CD safe: allows CI env vars (GITHUB_*, GITLAB_*, etc.), blocks publish/force-push |
+
+### Individual Rule Sets
+
+You can also import individual rule sets to compose your own config:
+
+```typescript
+import { 
+  COMMON_HIDDEN_DIRS,    // node_modules, .git, dist, build, etc.
+  SENSITIVE_FILES,       // .env, *.pem, *.key, credentials, etc.
+  SENSITIVE_ENV_VARS,    // AWS_*, passwords, tokens, API keys
+  DANGEROUS_COMMANDS,    // rm -rf, chmod 777, curl|bash, etc.
+  CREDENTIAL_LEAK_COMMANDS  // curl -u, echo $PASSWORD
+} from 'veil';
+
+const customPreset = {
+  fileRules: [...COMMON_HIDDEN_DIRS],
+  envRules: SENSITIVE_ENV_VARS,
+  cliRules: DANGEROUS_COMMANDS
+};
+```
+
 ### Veil Instance Methods
 
 | Method                    | Description                             |
