@@ -1,41 +1,683 @@
 #!/usr/bin/env node
+import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { dirname, join, relative, resolve } from "node:path";
 import { Command } from "commander";
 import { version } from "../../package.json";
+import {
+	PRESET_CI,
+	PRESET_MINIMAL,
+	PRESET_RECOMMENDED,
+	PRESET_STRICT,
+	mergeConfigs,
+} from "../presets";
+import {
+	ensureRulesRegistered,
+	getRule,
+	listPacks,
+	listRules,
+	registerModalRules,
+	registerPlatformRules,
+} from "../rules";
+import type { VeilConfig } from "../types";
+import { createVeil } from "../veil";
+
+// Register all built-in rules on CLI startup
+registerPlatformRules();
+registerModalRules();
+
+const CONFIG_FILENAME = ".veilrc.json";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+function colorize(text: string, color: "red" | "green" | "yellow" | "cyan" | "gray"): string {
+	const colors: Record<string, string> = {
+		red: "\x1b[31m",
+		green: "\x1b[32m",
+		yellow: "\x1b[33m",
+		cyan: "\x1b[36m",
+		gray: "\x1b[90m",
+	};
+	return `${colors[color]}${text}\x1b[0m`;
+}
+
+function findConfigFile(startDir: string = process.cwd()): string | null {
+	let dir = startDir;
+	while (dir !== dirname(dir)) {
+		const configPath = join(dir, CONFIG_FILENAME);
+		if (existsSync(configPath)) {
+			return configPath;
+		}
+		dir = dirname(dir);
+	}
+	return null;
+}
+
+function loadConfig(): VeilConfig | null {
+	const configPath = findConfigFile();
+	if (!configPath) {
+		return null;
+	}
+
+	try {
+		const content = readFileSync(configPath, "utf-8");
+		const parsed = JSON.parse(content) as VeilConfig;
+
+		// Convert string patterns back to RegExp where appropriate
+		const convertMatch = (match: string | RegExp): string | RegExp => {
+			if (typeof match !== "string") return match;
+			return match.startsWith("^") || match.includes("|") ? new RegExp(match, "i") : match;
+		};
+
+		const result: VeilConfig = {};
+
+		if (parsed.fileRules) {
+			result.fileRules = parsed.fileRules.map((rule) => ({
+				...rule,
+				match: convertMatch(rule.match),
+			}));
+		}
+
+		if (parsed.envRules) {
+			result.envRules = parsed.envRules.map((rule) => ({
+				...rule,
+				match: convertMatch(rule.match),
+			}));
+		}
+
+		if (parsed.cliRules) {
+			result.cliRules = parsed.cliRules.map((rule) => ({
+				...rule,
+				match: convertMatch(rule.match),
+			}));
+		}
+
+		return result;
+	} catch (error) {
+		console.error(colorize(`Failed to parse ${CONFIG_FILENAME}:`, "red"), error);
+		return null;
+	}
+}
+
+function saveConfig(config: VeilConfig, filePath: string): void {
+	// Convert RegExp to string for JSON serialization
+	const serializableConfig = {
+		fileRules: config.fileRules?.map((rule) => ({
+			...rule,
+			match: rule.match instanceof RegExp ? rule.match.source : rule.match,
+		})),
+		envRules: config.envRules?.map((rule) => ({
+			...rule,
+			match: rule.match instanceof RegExp ? rule.match.source : rule.match,
+		})),
+		cliRules: config.cliRules?.map((rule) => ({
+			...rule,
+			match: rule.match instanceof RegExp ? rule.match.source : rule.match,
+		})),
+	};
+
+	writeFileSync(filePath, `${JSON.stringify(serializableConfig, null, 2)}\n`);
+}
+
+function walkDir(dir: string, maxDepth = 5, currentDepth = 0): string[] {
+	if (currentDepth >= maxDepth) return [];
+
+	const files: string[] = [];
+	try {
+		const entries = readdirSync(dir, { withFileTypes: true });
+		for (const entry of entries) {
+			const fullPath = join(dir, entry.name);
+			if (entry.isDirectory()) {
+				// Skip common large directories
+				if (
+					["node_modules", ".git", "dist", "build", ".next", "coverage", ".cache"].includes(
+						entry.name,
+					)
+				) {
+					continue;
+				}
+				files.push(...walkDir(fullPath, maxDepth, currentDepth + 1));
+			} else {
+				files.push(fullPath);
+			}
+		}
+	} catch {
+		// Ignore permission errors
+	}
+	return files;
+}
+
+function printResult(
+	target: string,
+	result: { ok: boolean; reason?: string; safeAlternatives?: string[] },
+): void {
+	if (result.ok) {
+		console.log(colorize("✓ ALLOWED", "green"), target);
+	} else {
+		console.log(colorize("✗ BLOCKED", "red"), target);
+		if (result.reason) {
+			console.log(colorize(`  Reason: ${result.reason}`, "gray"));
+		}
+		if (result.safeAlternatives?.length) {
+			console.log(colorize("  Safe alternatives:", "gray"));
+			for (const alt of result.safeAlternatives) {
+				console.log(colorize(`    - ${alt}`, "cyan"));
+			}
+		}
+	}
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Presets
+// ─────────────────────────────────────────────────────────────────────────────
+
+const PRESETS: Record<string, VeilConfig> = {
+	recommended: PRESET_RECOMMENDED,
+	strict: PRESET_STRICT,
+	minimal: PRESET_MINIMAL,
+	ci: PRESET_CI,
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CLI Program
+// ─────────────────────────────────────────────────────────────────────────────
 
 const program = new Command();
 
 program.name("veil").description("Veil: LLM visibility firewall CLI").version(version);
 
+// ─────────────────────────────────────────────────────────────────────────────
+// init - Scaffold a .veilrc.json config file
+// ─────────────────────────────────────────────────────────────────────────────
+
 program
 	.command("init")
 	.description("Scaffold a .veilrc.json config file")
-	.action((): void => {
-		// TODO: Interactive config scaffolding
-		console.log("Scaffolding .veilrc.json (not yet implemented)");
+	.option("-p, --preset <preset>", "Use a preset (recommended, strict, minimal, ci)", "recommended")
+	.option("-f, --force", "Overwrite existing config file")
+	.action((options: { preset: string; force?: boolean }): void => {
+		const configPath = join(process.cwd(), CONFIG_FILENAME);
+
+		if (existsSync(configPath) && !options.force) {
+			console.log(
+				colorize(`${CONFIG_FILENAME} already exists. Use --force to overwrite.`, "yellow"),
+			);
+			return;
+		}
+
+		const preset = PRESETS[options.preset];
+		if (!preset) {
+			console.log(colorize(`Unknown preset: ${options.preset}`, "red"));
+			console.log(`Available presets: ${Object.keys(PRESETS).join(", ")}`);
+			return;
+		}
+
+		saveConfig(preset, configPath);
+		console.log(colorize(`✓ Created ${CONFIG_FILENAME} with "${options.preset}" preset`, "green"));
+		console.log(colorize(`  ${configPath}`, "gray"));
+		console.log();
+		console.log("Edit this file to customize your Veil rules, or use:");
+		console.log(colorize("  veil add-rule -t file -m 'secrets/' -a deny", "cyan"));
 	});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// check - Check if a file, env var, or command would be allowed/blocked
+// ─────────────────────────────────────────────────────────────────────────────
 
 program
 	.command("check <target>")
 	.description("Check if a file, env var, or command would be allowed/blocked")
-	.action((target: string): void => {
-		// TODO: Check logic
-		console.log(`Checking: ${target} (not yet implemented)`);
+	.option("-t, --type <type>", "Type of check: file, env, or cli", "file")
+	.action((target: string, options: { type: string }): void => {
+		let config = loadConfig();
+		if (!config) {
+			console.log(colorize(`No ${CONFIG_FILENAME} found. Using recommended preset.`, "yellow"));
+			config = PRESET_RECOMMENDED;
+		}
+
+		const veil = createVeil(config);
+
+		switch (options.type) {
+			case "file": {
+				const result = veil.checkFile(target);
+				printResult(target, result);
+				break;
+			}
+			case "env": {
+				const result = veil.getEnv(target);
+				printResult(target, result);
+				break;
+			}
+			case "cli":
+			case "cmd":
+			case "command": {
+				const result = veil.checkCommand(target);
+				printResult(target, result);
+				break;
+			}
+			default:
+				console.log(colorize(`Unknown type: ${options.type}. Use file, env, or cli.`, "red"));
+		}
 	});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// scan - Scan project for sensitive files
+// ─────────────────────────────────────────────────────────────────────────────
 
 program
 	.command("scan")
-	.description("Scan project for sensitive files, envs, or dangerous commands")
-	.action((): void => {
-		// TODO: Scan logic
-		console.log("Scanning project (not yet implemented)");
+	.description("Scan project for sensitive files that would be blocked")
+	.option("-d, --dir <directory>", "Directory to scan", ".")
+	.option("--depth <depth>", "Maximum directory depth", "5")
+	.option("-v, --verbose", "Show all files, not just blocked ones")
+	.action((options: { dir: string; depth: string; verbose?: boolean }): void => {
+		let config = loadConfig();
+		if (!config) {
+			console.log(colorize(`No ${CONFIG_FILENAME} found. Using recommended preset.`, "yellow"));
+			config = PRESET_RECOMMENDED;
+		}
+
+		const veil = createVeil(config);
+		const scanDir = resolve(options.dir);
+		const maxDepth = Number.parseInt(options.depth, 10);
+
+		console.log(colorize(`Scanning ${scanDir}...`, "cyan"));
+		console.log();
+
+		const files = walkDir(scanDir, maxDepth);
+		const blocked: { path: string; reason?: string }[] = [];
+		const allowed: string[] = [];
+
+		for (const file of files) {
+			const relativePath = relative(scanDir, file);
+			const result = veil.checkFile(relativePath);
+			if (result.ok) {
+				allowed.push(relativePath);
+			} else {
+				blocked.push({ path: relativePath, reason: result.reason });
+			}
+		}
+
+		// Show blocked files
+		console.log(colorize("─ Blocked Files ─", "red"));
+		if (blocked.length === 0) {
+			console.log(colorize("  No sensitive files found", "gray"));
+		} else {
+			for (const item of blocked.slice(0, 30)) {
+				console.log(colorize("  ✗", "red"), item.path);
+				if (item.reason && options.verbose) {
+					console.log(colorize(`    ${item.reason}`, "gray"));
+				}
+			}
+			if (blocked.length > 30) {
+				console.log(colorize(`  ... and ${blocked.length - 30} more`, "gray"));
+			}
+		}
+
+		// Show allowed files if verbose
+		if (options.verbose) {
+			console.log();
+			console.log(colorize("─ Allowed Files ─", "green"));
+			for (const file of allowed.slice(0, 20)) {
+				console.log(colorize("  ✓", "green"), file);
+			}
+			if (allowed.length > 20) {
+				console.log(colorize(`  ... and ${allowed.length - 20} more`, "gray"));
+			}
+		}
+
+		// Summary
+		console.log();
+		console.log(colorize("─ Summary ─", "cyan"));
+		console.log(`  Total files scanned: ${files.length}`);
+		console.log(colorize(`  Blocked: ${blocked.length}`, blocked.length > 0 ? "red" : "gray"));
+		console.log(colorize(`  Allowed: ${allowed.length}`, "green"));
 	});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// add-rule - Add a rule to .veilrc.json
+// ─────────────────────────────────────────────────────────────────────────────
 
 program
 	.command("add-rule")
-	.description("Add a rule to .veilrc.json interactively or via flags")
+	.description("Add a rule to .veilrc.json")
+	.requiredOption("-t, --type <type>", "Rule type: file, env, or cli")
+	.requiredOption("-m, --match <pattern>", "Pattern to match")
+	.requiredOption("-a, --action <action>", "Action: allow, deny, mask, or rewrite")
+	.option("-r, --reason <reason>", "Reason for the rule")
+	.option("--alternatives <alternatives>", "Safe alternatives (comma-separated)")
+	.action(
+		(options: {
+			type: string;
+			match: string;
+			action: string;
+			reason?: string;
+			alternatives?: string;
+		}): void => {
+			const configPath = findConfigFile() ?? join(process.cwd(), CONFIG_FILENAME);
+			let config: VeilConfig = {};
+
+			if (existsSync(configPath)) {
+				try {
+					config = JSON.parse(readFileSync(configPath, "utf-8")) as VeilConfig;
+				} catch {
+					console.log(colorize("Error reading config, creating new one.", "yellow"));
+				}
+			}
+
+			const newRule: Record<string, unknown> = {
+				match: options.match,
+				action: options.action,
+				...(options.reason && { reason: options.reason }),
+				...(options.alternatives && {
+					safeAlternatives: options.alternatives.split(",").map((s) => s.trim()),
+				}),
+			};
+
+			const ruleKey = `${options.type}Rules` as "fileRules" | "envRules" | "cliRules";
+			if (!config[ruleKey]) {
+				(config as Record<string, unknown[]>)[ruleKey] = [];
+			}
+			(config[ruleKey] as unknown[]).push(newRule);
+
+			saveConfig(config, configPath);
+			console.log(
+				colorize(`✓ Added ${options.type} rule: ${options.match} → ${options.action}`, "green"),
+			);
+		},
+	);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// remove-rule - Remove a rule from .veilrc.json
+// ─────────────────────────────────────────────────────────────────────────────
+
+program
+	.command("remove-rule")
+	.description("Remove a rule from .veilrc.json by pattern")
+	.requiredOption("-m, --match <pattern>", "Pattern to remove")
+	.option("-t, --type <type>", "Rule type (file, env, cli)", "file")
+	.action((options: { match: string; type: string }): void => {
+		const configPath = findConfigFile();
+		if (!configPath) {
+			console.log(colorize(`No ${CONFIG_FILENAME} found.`, "red"));
+			return;
+		}
+
+		const config: VeilConfig = JSON.parse(readFileSync(configPath, "utf-8")) as VeilConfig;
+		const state = { removed: false };
+
+		const filterRules = <T extends { match: string | RegExp }>(
+			rules: T[] | undefined,
+		): T[] | undefined => {
+			if (!rules) return undefined;
+			const filtered = rules.filter((r) => String(r.match) !== options.match);
+			if (filtered.length < rules.length) {
+				state.removed = true;
+			}
+			return filtered.length > 0 ? filtered : undefined;
+		};
+
+		const applyFilter = (key: "fileRules" | "envRules" | "cliRules"): void => {
+			const result = filterRules(config[key]);
+			if (result === undefined) {
+				// eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+				delete config[key];
+			} else {
+				// Safe assignment since result is definitely an array here
+				(config as Record<string, unknown>)[key] = result;
+			}
+		};
+
+		switch (options.type) {
+			case "file":
+				applyFilter("fileRules");
+				break;
+			case "env":
+				applyFilter("envRules");
+				break;
+			case "cli":
+			case "cmd":
+				applyFilter("cliRules");
+				break;
+		}
+
+		if (state.removed) {
+			saveConfig(config, configPath);
+			console.log(colorize(`✓ Removed rule: ${options.match}`, "green"));
+		} else {
+			console.log(colorize(`Rule not found: ${options.match}`, "yellow"));
+		}
+	});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// list-rules - List all available built-in rules
+// ─────────────────────────────────────────────────────────────────────────────
+
+program
+	.command("list-rules")
+	.description("List all available built-in rules")
+	.option("-c, --category <category>", "Filter by category (file, env, cli)")
+	.action((options: { category?: string }): void => {
+		ensureRulesRegistered();
+		const rules = listRules();
+
+		console.log(colorize("─ Available Built-in Rules ─", "cyan"));
+		console.log();
+
+		let count = 0;
+		for (const ruleId of rules) {
+			const rule = getRule(ruleId);
+			if (!rule) continue;
+
+			if (options.category && rule.category !== options.category) {
+				continue;
+			}
+
+			const severityColor = rule.defaultSeverity === "error" ? "red" : "yellow";
+			console.log(`${colorize("●", severityColor)} ${colorize(ruleId, "cyan")}`);
+			console.log(colorize(`   ${rule.description}`, "gray"));
+			count++;
+		}
+
+		console.log();
+		console.log(colorize(`Total: ${count} rules`, "gray"));
+	});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// list-packs - List all available rule packs
+// ─────────────────────────────────────────────────────────────────────────────
+
+program
+	.command("list-packs")
+	.description("List all available rule packs")
 	.action((): void => {
-		// TODO: Interactive rule addition
-		console.log("Add rule (not yet implemented)");
+		ensureRulesRegistered();
+		const packs = listPacks();
+
+		console.log(colorize("─ Available Rule Packs ─", "cyan"));
+		console.log();
+
+		for (const pack of packs) {
+			console.log(colorize(`● ${pack}`, "cyan"));
+		}
+
+		console.log();
+		console.log(colorize("─ Available Presets ─", "cyan"));
+		console.log();
+		for (const preset of Object.keys(PRESETS)) {
+			console.log(colorize(`● ${preset}`, "green"));
+		}
+
+		console.log();
+		console.log(colorize("Use with: veil init --preset <name>", "gray"));
+		console.log(colorize("Or:       veil apply-pack <name>", "gray"));
+	});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// show-config - Print the current resolved config
+// ─────────────────────────────────────────────────────────────────────────────
+
+program
+	.command("show-config")
+	.description("Print the current resolved config")
+	.action((): void => {
+		const configPath = findConfigFile();
+
+		if (!configPath) {
+			console.log(colorize(`No ${CONFIG_FILENAME} found.`, "yellow"));
+			console.log(colorize("Run `veil init` to create one.", "gray"));
+			return;
+		}
+
+		console.log(colorize(`Config: ${configPath}`, "cyan"));
+		console.log();
+
+		const content = readFileSync(configPath, "utf-8");
+		console.log(content);
+	});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// apply-pack - Apply a preset pack to .veilrc.json
+// ─────────────────────────────────────────────────────────────────────────────
+
+program
+	.command("apply-pack <pack>")
+	.description("Apply a preset pack to .veilrc.json (merges with existing)")
+	.action((pack: string): void => {
+		const preset = PRESETS[pack];
+		if (!preset) {
+			console.log(colorize(`Unknown pack: ${pack}`, "red"));
+			console.log(`Available packs: ${Object.keys(PRESETS).join(", ")}`);
+			return;
+		}
+
+		const configPath = findConfigFile() ?? join(process.cwd(), CONFIG_FILENAME);
+		let config: VeilConfig = {};
+
+		if (existsSync(configPath)) {
+			try {
+				config = JSON.parse(readFileSync(configPath, "utf-8")) as VeilConfig;
+			} catch {
+				// Start fresh
+			}
+		}
+
+		const merged = mergeConfigs(config, preset);
+		saveConfig(merged, configPath);
+		console.log(colorize(`✓ Applied "${pack}" pack to ${CONFIG_FILENAME}`, "green"));
+	});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// explain - Explain why an item is blocked or allowed
+// ─────────────────────────────────────────────────────────────────────────────
+
+program
+	.command("explain <target>")
+	.description("Explain why a file, env var, or command is blocked or allowed")
+	.option("-t, --type <type>", "Type of target (file, env, cli)", "file")
+	.action((target: string, options: { type: string }): void => {
+		let config = loadConfig();
+		if (!config) {
+			console.log(colorize(`No ${CONFIG_FILENAME} found. Using recommended preset.`, "yellow"));
+			config = PRESET_RECOMMENDED;
+		}
+
+		const veil = createVeil(config);
+
+		let result: { ok: boolean; reason?: string; blocked?: boolean; details?: unknown };
+
+		switch (options.type) {
+			case "file":
+				result = veil.checkFile(target);
+				break;
+			case "env":
+				result = veil.getEnv(target);
+				break;
+			case "cli":
+			case "cmd":
+			case "command":
+				result = veil.checkCommand(target);
+				break;
+			default:
+				console.log(colorize(`Unknown type: ${options.type}. Use file, env, or cli.`, "red"));
+				return;
+		}
+
+		console.log(colorize(`─ Explanation for: ${target} ─`, "cyan"));
+		console.log();
+
+		if (result.ok) {
+			console.log(colorize("Status: ALLOWED", "green"));
+			console.log();
+			console.log("This target does not match any blocking rules in your config.");
+		} else {
+			console.log(colorize("Status: BLOCKED", "red"));
+			console.log();
+			console.log(`Reason: ${result.reason ?? "Unknown"}`);
+
+			if (result.details) {
+				console.log();
+				console.log(colorize("Details:", "gray"));
+				console.log(JSON.stringify(result.details, null, 2));
+			}
+		}
+
+		// Show matching rules
+		console.log();
+		console.log(colorize("─ Matching Rules ─", "gray"));
+
+		const rules =
+			options.type === "file"
+				? config.fileRules
+				: options.type === "env"
+					? config.envRules
+					: config.cliRules;
+
+		if (!rules || rules.length === 0) {
+			console.log("  No rules configured for this type.");
+			return;
+		}
+
+		let matchFound = false;
+		for (const rule of rules) {
+			const pattern = rule.match;
+			const matches =
+				typeof pattern === "string"
+					? target.includes(pattern)
+					: pattern instanceof RegExp
+						? pattern.test(target)
+						: false;
+
+			if (matches) {
+				matchFound = true;
+				console.log(colorize(`  ✓ Match: ${String(pattern)} → ${rule.action}`, "yellow"));
+			}
+		}
+
+		if (!matchFound) {
+			console.log("  No matching rules found (default: allow)");
+		}
+	});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// audit - Show recent audit/intercept logs (placeholder for future)
+// ─────────────────────────────────────────────────────────────────────────────
+
+program
+	.command("audit")
+	.description("Show recent audit logs (requires runtime integration)")
+	.action((): void => {
+		console.log(colorize("─ Audit Log ─", "cyan"));
+		console.log();
+		console.log("Audit logging requires runtime integration.");
+		console.log("Add the audit manager to your Veil instance:");
+		console.log();
+		console.log(
+			colorize("  import { AuditManager, MemoryStorageAdapter } from '@squadzero/veil';", "gray"),
+		);
+		console.log(colorize("  const audit = new AuditManager(new MemoryStorageAdapter());", "gray"));
+		console.log(colorize("  audit.on('intercept', (event) => console.log(event));", "gray"));
 	});
 
 export function run(): void {
