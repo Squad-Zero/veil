@@ -93,3 +93,44 @@ export {
 	// Helpers
 	mergeConfigs,
 } from "./presets";
+
+// Rules system (ESLint-style named rules)
+export * as rules from "./rules";
+export type {
+	VeilRule,
+	RuleCategory,
+	RuleSeverity,
+	RuleConfig,
+	RulesConfig,
+	RulePack,
+	Platform,
+} from "./rules/types";
+export {
+	registerRule,
+	registerRules,
+	getRule,
+	getAllRules,
+	getRulesByCategory,
+	getRulesByPlatform,
+	detectPlatform,
+	buildConfigFromRules,
+	getRecommendedRules,
+	extendRules,
+	clearRegistry,
+} from "./rules/registry";
+export {
+	windowsRules,
+	darwinRules,
+	linuxRules,
+	crossPlatformRules,
+	registerPlatformRules,
+} from "./rules/platform";
+export {
+	RULE_PACKS,
+	fromPacks,
+	fromCategory,
+	recommended,
+	strict,
+	listRules,
+	listPacks,
+} from "./rules/categories";
