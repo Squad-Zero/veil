@@ -39,11 +39,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/am80l/veil.git"
+    "url": "https://github.com/Squad-Zero/veil.git"
   },
-  "homepage": "https://github.com/am80l/veil#readme",
+  "homepage": "https://github.com/Squad-Zero/veil#readme",
   "bugs": {
-    "url": "https://github.com/am80l/veil/issues"
+    "url": "https://github.com/Squad-Zero/veil/issues"
   },
   "sideEffects": false,
   "devDependencies": {

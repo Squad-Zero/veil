@@ -310,10 +310,11 @@ npm run typecheck
 
 ## License
 
-MIT © [am80l](https://github.com/am80l)
+MIT © [Squad-Zero](https://github.com/Squad-Zero)
 
 ## Contributors
 
+- [Squad-Zero](https://github.com/Squad-Zero) - Organization
 - [am80l](https://github.com/am80l) - Creator & Maintainer
 - [michaelhartmayer](https://github.com/michaelhartmayer) - Creator & Maintainer
 
