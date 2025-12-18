@@ -182,33 +182,33 @@ The MCP server exposes tools that AI agents can call. Each tool supports dynamic
 
 #### `run_command`
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `command` | string | ✅ | The shell command to execute |
-| `cwd` | string | ❌ | Working directory. Config is loaded from this path. |
-| `timeout` | number | ❌ | Timeout in ms (default: 30000) |
+| Parameter | Type   | Required | Description                                         |
+| --------- | ------ | -------- | --------------------------------------------------- |
+| `command` | string | ✅        | The shell command to execute                        |
+| `cwd`     | string | ❌        | Working directory. Config is loaded from this path. |
+| `timeout` | number | ❌        | Timeout in ms (default: 30000)                      |
 
 #### `check_command`
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `command` | string | ✅ | The command to check |
-| `cwd` | string | ❌ | Directory to load config from |
+| Parameter | Type   | Required | Description                   |
+| --------- | ------ | -------- | ----------------------------- |
+| `command` | string | ✅        | The command to check          |
+| `cwd`     | string | ❌        | Directory to load config from |
 
 #### `get_env` / `check_env`
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `name` | string | ✅ | Environment variable name |
-| `cwd` | string | ❌ | Directory to load config from |
+| Parameter | Type   | Required | Description                   |
+| --------- | ------ | -------- | ----------------------------- |
+| `name`    | string | ✅        | Environment variable name     |
+| `cwd`     | string | ❌        | Directory to load config from |
 
 #### `check_file` / `read_file` / `write_file`
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `path` | string | ✅ | File path to check/read/write |
-| `operation` | string | ❌ | For check_file: "read" or "write" |
-| `content` | string | ✅* | For write_file only |
+| Parameter   | Type   | Required | Description                       |
+| ----------- | ------ | -------- | --------------------------------- |
+| `path`      | string | ✅        | File path to check/read/write     |
+| `operation` | string | ❌        | For check_file: "read" or "write" |
+| `content`   | string | ✅*       | For write_file only               |
 
 *Config is automatically loaded from the file's parent directory.
 

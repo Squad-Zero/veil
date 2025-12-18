@@ -18,11 +18,11 @@ Protects AI terminal sessions while leaving human terminals unaffected.
 
 ### How It Works
 
-| Terminal | `VEIL_ENABLED` | Result |
-|----------|----------------|--------|
-| Human (outside VS Code) | not set | Commands pass through ✅ |
-| Human (in VS Code) | `1` | Commands checked 🛡️ |
-| AI (Copilot) | `1` | Commands checked 🛡️ |
+| Terminal                | `VEIL_ENABLED` | Result                  |
+| ----------------------- | -------------- | ----------------------- |
+| Human (outside VS Code) | not set        | Commands pass through ✅ |
+| Human (in VS Code)      | `1`            | Commands checked 🛡️      |
+| AI (Copilot)            | `1`            | Commands checked 🛡️      |
 
 ### Step 1: Install & Configure Shell
 
@@ -178,16 +178,16 @@ Edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
 ### MCP Tools Provided
 
-| Tool | Description | `cwd` Support |
-|------|-------------|---------------|
-| `run_command` | Execute shell command (with veil filtering) | ✅ Uses cwd parameter |
-| `check_command` | Check if command is allowed | ✅ Uses cwd parameter |
-| `get_env` | Get environment variable (with veil filtering) | ✅ Uses cwd parameter |
-| `check_env` | Check if env var is accessible | ✅ Uses cwd parameter |
-| `check_file` | Check if file path is allowed | ✅ Derives from file path |
-| `read_file` | Read file with veil validation | ✅ Derives from file path |
-| `write_file` | Write file with veil validation | ✅ Derives from file path |
-| `get_audit_log` | View audit trail | ❌ No project context |
+| Tool            | Description                                    | `cwd` Support            |
+| --------------- | ---------------------------------------------- | ------------------------ |
+| `run_command`   | Execute shell command (with veil filtering)    | ✅ Uses cwd parameter     |
+| `check_command` | Check if command is allowed                    | ✅ Uses cwd parameter     |
+| `get_env`       | Get environment variable (with veil filtering) | ✅ Uses cwd parameter     |
+| `check_env`     | Check if env var is accessible                 | ✅ Uses cwd parameter     |
+| `check_file`    | Check if file path is allowed                  | ✅ Derives from file path |
+| `read_file`     | Read file with veil validation                 | ✅ Derives from file path |
+| `write_file`    | Write file with veil validation                | ✅ Derives from file path |
+| `get_audit_log` | View audit trail                               | ❌ No project context     |
 
 ---
 
@@ -232,9 +232,9 @@ Configure your MCP client to connect via HTTP to the remote server.
 
 ## Coverage Matrix
 
-| Scenario | Protected By |
-|----------|--------------|
+| Scenario                           | Protected By                 |
+| ---------------------------------- | ---------------------------- |
 | Human runs command outside VS Code | Not protected (AI-only mode) |
-| Human runs command in VS Code | Shell wrapper ✅ |
-| AI uses `mcp_veil_run_command` | MCP server ✅ |
-| AI uses `run_in_terminal` | Shell wrapper ✅ |
+| Human runs command in VS Code      | Shell wrapper ✅              |
+| AI uses `mcp_veil_run_command`     | MCP server ✅                 |
+| AI uses `run_in_terminal`          | Shell wrapper ✅              |

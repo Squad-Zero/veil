@@ -36,12 +36,12 @@ veil install --dry-run                 # Preview without changes
 ```
 
 **Options:**
-| Option | Description |
-|--------|-------------|
-| `-s, --shell <path>` | Path to shell config file |
-| `-c, --commands <list>` | Comma-separated commands to wrap |
-| `-f, --force` | Apply to all terminals (not just AI) |
-| `--dry-run` | Preview without modifying files |
+| Option                  | Description                          |
+| ----------------------- | ------------------------------------ |
+| `-s, --shell <path>`    | Path to shell config file            |
+| `-c, --commands <list>` | Comma-separated commands to wrap     |
+| `-f, --force`           | Apply to all terminals (not just AI) |
+| `--dry-run`             | Preview without modifying files      |
 
 ---
 
@@ -69,8 +69,8 @@ veil check "rm -rf /" -t cli
 ```
 
 **Options:**
-| Option | Description |
-|--------|-------------|
+| Option              | Description                          |
+| ------------------- | ------------------------------------ |
 | `-t, --type <type>` | Target type: `file`, `env`, or `cli` |
 
 ---
@@ -88,13 +88,13 @@ veil add-rule -t cli \
 ```
 
 **Options:**
-| Option | Description |
-|--------|-------------|
-| `-t, --type <type>` | Rule type: `file`, `env`, or `cli` |
-| `-m, --match <pattern>` | Pattern to match |
+| Option                  | Description                                |
+| ----------------------- | ------------------------------------------ |
+| `-t, --type <type>`     | Rule type: `file`, `env`, or `cli`         |
+| `-m, --match <pattern>` | Pattern to match                           |
 | `-a, --action <action>` | Action: `allow`, `deny`, `mask`, `rewrite` |
-| `-r, --reason <text>` | Reason shown when blocked |
-| `--alternatives <list>` | Safe alternatives (comma-separated) |
+| `-r, --reason <text>`   | Reason shown when blocked                  |
+| `--alternatives <list>` | Safe alternatives (comma-separated)        |
 
 ---
 
@@ -133,10 +133,10 @@ veil mcp --http --host 0.0.0.0 # Custom host
 ```
 
 **Options:**
-| Option | Description |
-|--------|-------------|
-| `--http` | Use HTTP transport instead of stdio |
-| `--port <port>` | Port for HTTP server (default: 3500) |
+| Option          | Description                             |
+| --------------- | --------------------------------------- |
+| `--http`        | Use HTTP transport instead of stdio     |
+| `--port <port>` | Port for HTTP server (default: 3500)    |
 | `--host <host>` | Host for HTTP server (default: 0.0.0.0) |
 
 **Dynamic Config Loading (v0.6.0+):**
@@ -170,10 +170,10 @@ veil audit
 
 ## Environment Variables
 
-| Variable | Description |
-|----------|-------------|
-| `VEIL_ENABLED=1` | Enable veil-wrap checking |
-| `VEIL_FORCE=1` | Force checking even without VEIL_ENABLED |
-| `VEIL_CONFIG=<path>` | Path to config file (overrides auto-discovery) |
-| `VEIL_AUDIT_LOG=<path>` | Path to audit log file (default: `.veil/audit.log`) |
-| `VEIL_AUDIT_FORMAT=<fmt>` | Audit format: `text` or `json` (default: `text`) |
+| Variable                  | Description                                         |
+| ------------------------- | --------------------------------------------------- |
+| `VEIL_ENABLED=1`          | Enable veil-wrap checking                           |
+| `VEIL_FORCE=1`            | Force checking even without VEIL_ENABLED            |
+| `VEIL_CONFIG=<path>`      | Path to config file (overrides auto-discovery)      |
+| `VEIL_AUDIT_LOG=<path>`   | Path to audit log file (default: `.veil/audit.log`) |
+| `VEIL_AUDIT_FORMAT=<fmt>` | Audit format: `text` or `json` (default: `text`)    |
