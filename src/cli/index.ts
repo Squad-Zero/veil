@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { Command } from "commander";
 import { version } from "../../package.json";
@@ -20,6 +20,16 @@ import {
 } from "../rules";
 import type { VeilConfig } from "../types";
 import { createVeil } from "../veil";
+import {
+	type ShellType,
+	SHELL_MARKER_START,
+	SHELL_MARKER_END,
+	PS_SHELL_MARKER_START,
+	PS_SHELL_MARKER_END,
+	detectCurrentShell,
+	getShellWrapper,
+	getShellConfigPaths,
+} from "./shell-utils";
 
 // Register all built-in rules on CLI startup
 registerPlatformRules();
@@ -664,52 +674,21 @@ program
 // install - Add shell wrapper to .zshrc/.bashrc
 // ─────────────────────────────────────────────────────────────────────────────
 
-const SHELL_MARKER_START = "# >>> veil shell wrapper >>>";
-const SHELL_MARKER_END = "# <<< veil shell wrapper <<<";
-
-function getShellWrapper(commands: string[], forceMode: boolean): string {
-	const wrapperFunctions = commands
-		.map(
-			(cmd) => `${cmd}() {
-  if command -v veil-wrap >/dev/null 2>&1; then
-    veil-wrap ${cmd} "$@"
-  else
-    command ${cmd} "$@"
-  fi
-}`,
-		)
-		.join("\n\n");
-
-	const modeComment = forceMode
-		? "# Mode: FORCE - applies to ALL terminals (humans + AI)"
-		: "# Mode: AI-only - only activates when VEIL_ENABLED=1 (set in VS Code)";
-
-	return `${SHELL_MARKER_START}
-# Veil intercepts these commands to enforce security policies
-# See: https://github.com/Squad-Zero/veil
-${modeComment}
-${wrapperFunctions}
-${SHELL_MARKER_END}`;
-}
-
-function getShellConfigPaths(): string[] {
-	// biome-ignore lint/complexity/useLiteralKeys: TypeScript requires bracket notation for index signatures
-	const home = process.env["HOME"] ?? process.env["USERPROFILE"] ?? "";
-	return [join(home, ".zshrc"), join(home, ".bashrc"), join(home, ".bash_profile")];
-}
-
-function detectCurrentShell(): string {
-	// biome-ignore lint/complexity/useLiteralKeys: TypeScript requires bracket notation for index signatures
-	const shell = process.env["SHELL"] ?? "";
-	if (shell.includes("zsh")) return "zsh";
-	if (shell.includes("bash")) return "bash";
-	return "unknown";
-}
-
 function getDefaultConfigPath(): string {
 	// biome-ignore lint/complexity/useLiteralKeys: TypeScript requires bracket notation for index signatures
 	const home = process.env["HOME"] ?? process.env["USERPROFILE"] ?? "";
 	const shell = detectCurrentShell();
+
+	if (shell === "powershell") {
+		// biome-ignore lint/complexity/useLiteralKeys: TypeScript requires bracket notation for index signatures
+		const userProfile = process.env["USERPROFILE"] ?? home;
+		// Prefer PowerShell 7+ profile, fall back to Windows PowerShell
+		const ps7Profile = join(userProfile, "Documents", "PowerShell", "Microsoft.PowerShell_profile.ps1");
+		const ps5Profile = join(userProfile, "Documents", "WindowsPowerShell", "Microsoft.PowerShell_profile.ps1");
+		// Return PS7 profile if it exists, otherwise PS5
+		return existsSync(ps7Profile) ? ps7Profile : ps5Profile;
+	}
+
 	if (shell === "zsh") return join(home, ".zshrc");
 	return join(home, ".bashrc");
 }
@@ -726,12 +705,18 @@ program
 			const commands = (options.commands ?? "wrangler").split(",").map((c) => c.trim());
 			const shellConfig = options.shell ?? getDefaultConfigPath();
 			const forceMode = options.force ?? false;
-			const wrapper = getShellWrapper(commands, forceMode);
+
+			// Detect shell type from config path
+			const isPowerShell = shellConfig.endsWith(".ps1");
+			const isBashLike = shellConfig.includes(".bashrc") || shellConfig.includes(".bash_profile") || shellConfig.includes(".zshrc");
+			const shellType: ShellType = isPowerShell ? "powershell" : isBashLike ? "bash" : detectCurrentShell();
+			const wrapper = getShellWrapper(commands, forceMode, shellType);
 
 			if (options.dryRun) {
 				console.log(colorize("─ Dry Run: Shell Wrapper ─", "cyan"));
 				console.log();
 				console.log(`Would add to: ${colorize(shellConfig, "yellow")}`);
+				console.log(`Shell type: ${colorize(shellType, "yellow")}`);
 				console.log(`Mode: ${colorize(forceMode ? "FORCE (all terminals)" : "AI-only", "yellow")}`);
 				console.log();
 				console.log(colorize("Content:", "gray"));
@@ -739,9 +724,26 @@ program
 				return;
 			}
 
+			// For PowerShell, create the profile directory if it doesn't exist
+			if (isPowerShell && !existsSync(shellConfig)) {
+				const profileDir = dirname(shellConfig);
+				if (!existsSync(profileDir)) {
+					mkdirSync(profileDir, { recursive: true });
+					console.log(colorize(`Created directory: ${profileDir}`, "gray"));
+				}
+				// Create empty profile
+				writeFileSync(shellConfig, "");
+				console.log(colorize(`Created PowerShell profile: ${shellConfig}`, "gray"));
+			}
+
 			// Check if file exists
 			if (!existsSync(shellConfig)) {
 				console.error(colorize(`Shell config not found: ${shellConfig}`, "red"));
+				if (isPowerShell) {
+					console.error("PowerShell profile paths:");
+					console.error("  PowerShell 7+: Documents\\PowerShell\\Microsoft.PowerShell_profile.ps1");
+					console.error("  Windows PS 5.1: Documents\\WindowsPowerShell\\Microsoft.PowerShell_profile.ps1");
+				}
 				console.error("Use --shell to specify the correct path");
 				process.exit(1);
 			}
@@ -750,7 +752,7 @@ program
 			const content = readFileSync(shellConfig, "utf-8");
 
 			// Check if already installed
-			if (content.includes(SHELL_MARKER_START)) {
+			if (content.includes(SHELL_MARKER_START) || content.includes(PS_SHELL_MARKER_START)) {
 				console.log(colorize("Veil shell wrapper already installed!", "yellow"));
 				console.log(`Location: ${shellConfig}`);
 				console.log();
@@ -766,6 +768,7 @@ program
 			console.log(colorize("✓ Veil shell wrapper installed!", "green"));
 			console.log();
 			console.log(`Location: ${colorize(shellConfig, "cyan")}`);
+			console.log(`Shell type: ${colorize(shellType, "cyan")}`);
 			console.log(`Wrapped commands: ${colorize(commands.join(", "), "yellow")}`);
 			console.log(`Mode: ${colorize(forceMode ? "FORCE (all terminals)" : "AI-only", "yellow")}`);
 			console.log();
@@ -788,10 +791,18 @@ program
 				console.log();
 			}
 
-			console.log("To activate, run:");
-			console.log(colorize(`  source ${shellConfig}`, "cyan"));
-			console.log();
-			console.log("Or open a new terminal.");
+			// Show activation instructions based on shell type
+			if (isPowerShell) {
+				console.log("To activate, run:");
+				console.log(colorize(`  . ${shellConfig}`, "cyan"));
+				console.log();
+				console.log("Or open a new PowerShell terminal.");
+			} else {
+				console.log("To activate, run:");
+				console.log(colorize(`  source ${shellConfig}`, "cyan"));
+				console.log();
+				console.log("Or open a new terminal.");
+			}
 		},
 	);
 
@@ -823,7 +834,8 @@ program
 
 			const content = readFileSync(shellConfig, "utf-8");
 
-			if (!content.includes(SHELL_MARKER_START)) {
+			// Check for either bash or PowerShell markers (they use the same markers now)
+			if (!content.includes(SHELL_MARKER_START) && !content.includes(PS_SHELL_MARKER_START)) {
 				if (!options.all) {
 					console.log(colorize("Veil shell wrapper not found in config.", "yellow"));
 					console.log(`Checked: ${shellConfig}`);
@@ -831,9 +843,11 @@ program
 				continue;
 			}
 
-			// Remove wrapper block
-			const startIdx = content.indexOf(SHELL_MARKER_START);
-			const endIdx = content.indexOf(SHELL_MARKER_END);
+			// Remove wrapper block - use whichever marker is found
+			const markerStart = content.includes(SHELL_MARKER_START) ? SHELL_MARKER_START : PS_SHELL_MARKER_START;
+			const markerEnd = content.includes(SHELL_MARKER_END) ? SHELL_MARKER_END : PS_SHELL_MARKER_END;
+			const startIdx = content.indexOf(markerStart);
+			const endIdx = content.indexOf(markerEnd);
 
 			if (startIdx === -1 || endIdx === -1) {
 				console.error(colorize(`Malformed wrapper block in ${shellConfig}`, "red"));
@@ -841,7 +855,7 @@ program
 			}
 
 			const before = content.slice(0, startIdx).trimEnd();
-			const after = content.slice(endIdx + SHELL_MARKER_END.length).trimStart();
+			const after = content.slice(endIdx + markerEnd.length).trimStart();
 			const newContent = before + (after ? `\n\n${after}` : "\n");
 
 			if (options.dryRun) {
@@ -857,10 +871,17 @@ program
 
 		if (removedAny && !options.dryRun) {
 			console.log();
-			console.log("To apply changes, run:");
-			console.log(colorize(`  source ${configs[0]}`, "cyan"));
-			console.log();
-			console.log("Or open a new terminal.");
+			console.log("To apply changes:");
+			const isPowerShell = configs[0]?.endsWith(".ps1");
+			if (isPowerShell) {
+				console.log(colorize(`  . ${configs[0]}`, "cyan"));
+				console.log();
+				console.log("Or open a new PowerShell terminal.");
+			} else {
+				console.log(colorize(`  source ${configs[0]}`, "cyan"));
+				console.log();
+				console.log("Or open a new terminal.");
+			}
 		} else if (!removedAny) {
 			console.log(colorize("No veil shell wrappers found to remove.", "yellow"));
 		}
