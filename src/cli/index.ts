@@ -661,6 +661,25 @@ program
 	});
 
 // ─────────────────────────────────────────────────────────────────────────────
+// mcp - Start the MCP server for IDE integration
+// ─────────────────────────────────────────────────────────────────────────────
+
+program
+	.command("mcp")
+	.description("Start the Model Context Protocol server for IDE integration")
+	.action(async (): Promise<void> => {
+		// Dynamically import the MCP server to avoid loading dependencies when not needed
+		try {
+			const { startMcpServer } = await import("../mcp/index.js");
+			await startMcpServer();
+		} catch (error) {
+			console.error(colorize("Failed to start MCP server:", "red"));
+			console.error(error);
+			process.exit(1);
+		}
+	});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // audit - Show recent audit/intercept logs (placeholder for future)
 // ─────────────────────────────────────────────────────────────────────────────
 

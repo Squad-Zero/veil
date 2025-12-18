@@ -329,6 +329,98 @@ npx veil scan -d ./src --depth 5
 
 ---
 
+## MCP Server (Model Context Protocol)
+
+Veil includes an MCP server that provides **real-time interception** of LLM tool calls. When connected to Claude Desktop, Cursor, VS Code, or other MCP-compatible clients, it intercepts commands and env access *before* they execute.
+
+### Setup
+
+**1. Configure your MCP client:**
+
+For **Claude Desktop** (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "veil": {
+      "command": "npx",
+      "args": ["@squadzero/veil", "mcp"]
+    }
+  }
+}
+```
+
+For **VS Code** (`.vscode/mcp.json` or settings):
+
+```json
+{
+  "servers": {
+    "veil": {
+      "command": "npx",
+      "args": ["@squadzero/veil", "mcp"]
+    }
+  }
+}
+```
+
+**2. Create a config file** in your project root:
+
+```typescript
+// veil.config.ts
+import type { VeilConfig } from '@squadzero/veil';
+
+export default {
+  cliRules: [
+    { match: /^rm\s+-rf/, action: 'deny', reason: 'Blocked: dangerous delete' },
+    { match: /^wrangler deploy/, action: 'deny', reason: 'Use CI/CD instead' },
+  ],
+  envRules: [
+    { match: /_SECRET$/, action: 'mask', replacement: '****' },
+  ]
+} satisfies VeilConfig;
+```
+
+**3. Restart your editor.** The MCP server will load your config automatically.
+
+### MCP Tools
+
+The server exposes 4 tools to the LLM:
+
+| Tool | Description |
+|------|-------------|
+| `run_command` | Execute a shell command (with Veil filtering) |
+| `get_env` | Get an environment variable (with Veil filtering) |
+| `check_command` | Check if a command is allowed without executing |
+| `check_env` | Check if an env var is accessible without retrieving |
+
+### How It Works
+
+```
+┌─────────────────────────────────────────────────────┐
+│  Claude/Cursor/VS Code                              │
+│                                                     │
+│   LLM: "Run rm -rf /"                               │
+│         │                                           │
+│         ▼                                           │
+│   ┌───────────────┐         ┌───────────────┐       │
+│   │  MCP Client   │◄───────►│  Veil MCP     │       │
+│   │  (built-in)   │  stdio  │  Server       │       │
+│   └───────────────┘         └───────┬───────┘       │
+│                                     │               │
+│                                     ▼               │
+│                             ┌───────────────┐       │
+│                             │ veil.config   │       │
+│                             │    rules      │       │
+│                             └───────────────┘       │
+│                                     │               │
+│                                     ▼               │
+│   Response: "Command blocked by Veil security      │
+│   policy. Reason: Blocked: dangerous delete"       │
+└─────────────────────────────────────────────────────┘
+```
+
+---
+
 ## Documentation
 
 | Document                                                   | Description                             |

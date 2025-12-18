@@ -40,7 +40,8 @@
     ]
   },
   "bin": {
-    "@squadzero/veil": "dist/cli/index.cjs"
+    "veil": "dist/cli/index.cjs",
+    "veil-mcp": "dist/mcp/index.cjs"
   },
   "keywords": [
     "llm",
@@ -49,7 +50,9 @@
     "visibility",
     "context",
     "guardrails",
-    "typescript"
+    "typescript",
+    "mcp",
+    "model-context-protocol"
   ],
   "author": "",
   "license": "MIT",
@@ -79,5 +82,9 @@
   },
   "engines": {
     "node": ">=18"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.25.1",
+    "zod": "4.2.1"
   }
 }
