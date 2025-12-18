@@ -62,7 +62,7 @@ function loadConfig(): VeilConfig | null {
 
 	try {
 		const content = readFileSync(configPath, "utf-8");
-		const parsed = JSON.parse(content) as VeilConfig;
+		const parsed = JSON.parse(content) as VeilConfig & { extends?: string };
 
 		// Convert string patterns back to RegExp where appropriate
 		const convertMatch = (match: string | RegExp): string | RegExp => {
@@ -91,6 +91,16 @@ function loadConfig(): VeilConfig | null {
 				...rule,
 				match: convertMatch(rule.match),
 			}));
+		}
+
+		// Handle extends - merge with base preset
+		if (parsed.extends) {
+			const preset = PRESETS[parsed.extends];
+			if (preset) {
+				// User rules take precedence (checked first), then preset rules
+				return mergeConfigs(result, preset);
+			}
+			console.error(colorize(`Unknown preset: ${parsed.extends}`, "yellow"));
 		}
 
 		return result;
