@@ -531,7 +531,9 @@ program
 program
 	.command("show-config")
 	.description("Print the current resolved config")
-	.action((): void => {
+	.option("-r, --resolved", "Show fully resolved config with inherited preset rules expanded")
+	.option("-j, --json", "Output as JSON (use with --resolved)")
+	.action((options: { resolved?: boolean; json?: boolean }): void => {
 		const configPath = findConfigFile();
 
 		if (!configPath) {
@@ -543,8 +545,153 @@ program
 		console.log(colorize(`Config: ${configPath}`, "cyan"));
 		console.log();
 
-		const content = readFileSync(configPath, "utf-8");
-		console.log(content);
+		if (options.resolved) {
+			// Load raw config to detect extends
+			const rawContent = readFileSync(configPath, "utf-8");
+			const rawConfig = JSON.parse(rawContent) as VeilConfig & { extends?: string };
+			const extendsPreset = rawConfig.extends;
+
+			// Get preset rules for comparison
+			const presetConfig = extendsPreset ? PRESETS[extendsPreset] : null;
+			const presetFilePatterns = new Set(
+				presetConfig?.fileRules?.map((r) =>
+					r.match instanceof RegExp ? r.match.source : r.match,
+				) ?? [],
+			);
+			const presetEnvPatterns = new Set(
+				presetConfig?.envRules?.map((r) =>
+					r.match instanceof RegExp ? r.match.source : r.match,
+				) ?? [],
+			);
+			const presetCliPatterns = new Set(
+				presetConfig?.cliRules?.map((r) =>
+					r.match instanceof RegExp ? r.match.source : r.match,
+				) ?? [],
+			);
+
+			// Load resolved config
+			const config = loadConfig();
+			if (!config) return;
+
+			if (options.json) {
+				// JSON output
+				const displayConfig = {
+					fileRules: config.fileRules?.map((r) => ({
+						...r,
+						match: r.match instanceof RegExp ? r.match.source : r.match,
+					})),
+					envRules: config.envRules?.map((r) => ({
+						...r,
+						match: r.match instanceof RegExp ? r.match.source : r.match,
+					})),
+					cliRules: config.cliRules?.map((r) => ({
+						...r,
+						match: r.match instanceof RegExp ? r.match.source : r.match,
+					})),
+				};
+				console.log(JSON.stringify(displayConfig, null, 2));
+				return;
+			}
+
+			// Pretty formatted output
+			if (extendsPreset) {
+				console.log(`${colorize("Extends:", "cyan")} ${colorize(extendsPreset, "green")}`);
+				console.log();
+			}
+
+			const formatMatch = (match: string | RegExp): string => {
+				const str = match instanceof RegExp ? match.source : match;
+				return str.length > 50 ? `${str.substring(0, 47)}...` : str;
+			};
+
+			const isFromPreset = (pattern: string | RegExp, presetSet: Set<string>): boolean => {
+				const str = pattern instanceof RegExp ? pattern.source : pattern;
+				return presetSet.has(str);
+			};
+
+			// File Rules
+			if (config.fileRules?.length) {
+				console.log(colorize("─── File Rules ───", "cyan"));
+				for (const rule of config.fileRules) {
+					const fromPreset = isFromPreset(rule.match, presetFilePatterns);
+					const source = fromPreset
+						? colorize(`[${extendsPreset}]`, "gray")
+						: colorize("[custom]", "yellow");
+					const action =
+						rule.action === "deny"
+							? colorize("DENY", "red")
+							: rule.action === "mask"
+								? colorize("MASK", "yellow")
+								: colorize("ALLOW", "green");
+					console.log(`  ${action} ${formatMatch(rule.match)} ${source}`);
+				}
+				console.log();
+			}
+
+			// Env Rules
+			if (config.envRules?.length) {
+				console.log(colorize("─── Env Rules ───", "cyan"));
+				for (const rule of config.envRules) {
+					const fromPreset = isFromPreset(rule.match, presetEnvPatterns);
+					const source = fromPreset
+						? colorize(`[${extendsPreset}]`, "gray")
+						: colorize("[custom]", "yellow");
+					const action =
+						rule.action === "deny"
+							? colorize("DENY", "red")
+							: rule.action === "mask"
+								? colorize("MASK", "yellow")
+								: colorize("ALLOW", "green");
+					console.log(`  ${action} ${formatMatch(rule.match)} ${source}`);
+				}
+				console.log();
+			}
+
+			// CLI Rules
+			if (config.cliRules?.length) {
+				console.log(colorize("─── CLI Rules ───", "cyan"));
+				for (const rule of config.cliRules) {
+					const fromPreset = isFromPreset(rule.match, presetCliPatterns);
+					const source = fromPreset
+						? colorize(`[${extendsPreset}]`, "gray")
+						: colorize("[custom]", "yellow");
+					const action =
+						rule.action === "deny"
+							? colorize("DENY", "red")
+							: rule.action === "rewrite"
+								? colorize("REWRITE", "yellow")
+								: colorize("ALLOW", "green");
+					console.log(`  ${action} ${formatMatch(rule.match)} ${source}`);
+				}
+				console.log();
+			}
+
+			// Summary
+			const customFile =
+				config.fileRules?.filter((r) => !isFromPreset(r.match, presetFilePatterns)).length ?? 0;
+			const customEnv =
+				config.envRules?.filter((r) => !isFromPreset(r.match, presetEnvPatterns)).length ?? 0;
+			const customCli =
+				config.cliRules?.filter((r) => !isFromPreset(r.match, presetCliPatterns)).length ?? 0;
+			const totalCustom = customFile + customEnv + customCli;
+			const totalPreset =
+				(config.fileRules?.length ?? 0) +
+				(config.envRules?.length ?? 0) +
+				(config.cliRules?.length ?? 0) -
+				totalCustom;
+
+			console.log(colorize("─── Summary ───", "cyan"));
+			console.log(
+				`  Total rules: ${(config.fileRules?.length ?? 0) + (config.envRules?.length ?? 0) + (config.cliRules?.length ?? 0)}`,
+			);
+			if (extendsPreset) {
+				console.log(`  From ${colorize(extendsPreset, "green")}: ${totalPreset}`);
+			}
+			console.log(`  ${colorize("Custom", "yellow")}: ${totalCustom}`);
+		} else {
+			const content = readFileSync(configPath, "utf-8");
+			console.log(content);
+		}
 	});
 
 // ─────────────────────────────────────────────────────────────────────────────
