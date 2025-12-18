@@ -25,6 +25,13 @@ import {
 	ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { AuditManager, FileStorageAdapter } from "../audit.js";
+import {
+	PRESET_CI,
+	PRESET_MINIMAL,
+	PRESET_RECOMMENDED,
+	PRESET_STRICT,
+	mergeConfigs,
+} from "../presets.js";
 import type { VeilConfig } from "../types.js";
 import { createVeil } from "../veil.js";
 
@@ -79,7 +86,15 @@ async function loadVeilConfig(): Promise<VeilConfig | undefined> {
 	if (existsSync(jsonConfigPath)) {
 		try {
 			const content = readFileSync(jsonConfigPath, "utf-8");
-			const parsed = JSON.parse(content) as VeilConfig;
+			const parsed = JSON.parse(content) as VeilConfig & { extends?: string };
+
+			// Preset map for extends support
+			const PRESETS: Record<string, VeilConfig> = {
+				recommended: PRESET_RECOMMENDED,
+				strict: PRESET_STRICT,
+				minimal: PRESET_MINIMAL,
+				ci: PRESET_CI,
+			};
 
 			// Convert string patterns back to RegExp where appropriate
 			const convertMatch = (match: string | RegExp): string | RegExp => {
@@ -108,6 +123,16 @@ async function loadVeilConfig(): Promise<VeilConfig | undefined> {
 					...rule,
 					match: convertMatch(rule.match),
 				}));
+			}
+
+			// Handle extends - merge with base preset
+			if (parsed.extends) {
+				const preset = PRESETS[parsed.extends];
+				if (preset) {
+					// User rules take precedence (checked first), then preset rules
+					return mergeConfigs(result, preset);
+				}
+				console.error(`[veil-mcp] Unknown preset: ${parsed.extends}`);
 			}
 
 			return result;
