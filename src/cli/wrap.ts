@@ -18,11 +18,8 @@
  *   VEIL_FORCE=1       - Force veil checking even without VEIL_ENABLED
  */
 import { type ChildProcess, spawn } from "node:child_process";
-import { existsSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { pathToFileURL } from "node:url";
-import type { VeilConfig } from "../types.js";
 import { createVeil } from "../veil.js";
+import { findConfigDir, loadConfig } from "./wrap-utils.js";
 
 /**
  * Check if veil should be active based on environment
@@ -40,48 +37,6 @@ function isVeilActive(): boolean {
 
 	// Default: only activate if explicitly enabled (AI terminal)
 	return veilEnabled === "1" || veilEnabled === "true";
-}
-
-/**
- * Find veil config file by searching up the directory tree
- */
-function findConfigDir(startDir: string): string | null {
-	let dir = startDir;
-	const configFiles = ["veil.config.ts", "veil.config.js", "veil.config.mjs"];
-
-	while (dir !== dirname(dir)) {
-		for (const configFile of configFiles) {
-			if (existsSync(join(dir, configFile))) {
-				return dir;
-			}
-		}
-		dir = dirname(dir);
-	}
-
-	return null;
-}
-
-/**
- * Load veil config from a directory
- */
-async function loadConfig(configDir: string): Promise<VeilConfig | undefined> {
-	const configFiles = ["veil.config.ts", "veil.config.js", "veil.config.mjs"];
-
-	for (const configFile of configFiles) {
-		const fullPath = join(configDir, configFile);
-		if (existsSync(fullPath)) {
-			try {
-				const loaded = (await import(pathToFileURL(fullPath).href)) as {
-					default?: VeilConfig;
-				} & VeilConfig;
-				return loaded.default ?? loaded;
-			} catch {
-				// Try next config file
-			}
-		}
-	}
-
-	return undefined;
 }
 
 /**
